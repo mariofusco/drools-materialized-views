@@ -1,4 +1,4 @@
-package org.drools.materialized;
+package org.drools.materialized.untyped;
 
 import java.util.Map;
 

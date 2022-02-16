@@ -1,23 +1,34 @@
-package org.drools.materialized;
+package org.drools.materialized.untyped;
 
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlJoin;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlSelect;
-import org.apache.calcite.sql.parser.SqlParseException;
-import org.apache.calcite.sql.parser.SqlParser;
 import org.drools.drl.ast.descr.AndDescr;
 import org.drools.drl.ast.descr.BaseDescr;
 import org.drools.drl.ast.descr.ExprConstraintDescr;
 import org.drools.drl.ast.descr.PackageDescr;
 import org.drools.drl.ast.descr.PatternDescr;
 import org.drools.drl.ast.descr.QueryDescr;
+import org.drools.modelcompiler.ExecutableModelProject;
+import org.kie.api.runtime.KieSession;
+import org.kie.internal.utils.KieHelper;
 
-public class QueryParser {
+import static org.drools.materialized.SqlUtil.parseQuery;
 
-    public static PackageDescr queryToPkgDescr(String query) {
+public class UntypedQueryGenerator {
+
+    public static KieSession query2KieSessionViaDescrs(String query) {
+        KieSession ksession = new KieHelper()
+                .addContent( queryToPkgDescr( (SqlSelect) parseQuery(query) ) )
+                .build(ExecutableModelProject.class)
+                .newKieSession();
+        return ksession;
+    }
+
+    private static PackageDescr queryToPkgDescr(SqlSelect query) {
         PackageDescr packageDescr = new PackageDescr(Fact.class.getPackageName());
-        packageDescr.addRule( selectToQueryDescr( (SqlSelect) parseQuery(query) ) );
+        packageDescr.addRule( selectToQueryDescr( query ) );
         return packageDescr;
     }
 
@@ -40,14 +51,6 @@ public class QueryParser {
         return lhs;
     }
 
-    private static SqlNode parseQuery(String query) {
-        try {
-            return SqlParser.create(query).parseQuery();
-        } catch (SqlParseException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private static BaseDescr toJoinConstraintDescr(SqlJoin join) {
         SqlBasicCall condition = (SqlBasicCall) join.getCondition();
         String leftValue = transformOperand(condition.getOperands()[0]);
@@ -62,9 +65,9 @@ public class QueryParser {
         return op.substring(0, dotPosition+1) + "get(\"" + field + "\")";
     }
 
-    private static PatternDescr toPatternDescr(SqlBasicCall left) {
-        String table = left.getOperands()[0].toString().toLowerCase();
-        String id = left.getOperands()[1].toString().toLowerCase();
+    private static PatternDescr toPatternDescr(SqlBasicCall sqlCall) {
+        String table = sqlCall.getOperands()[0].toString().toLowerCase();
+        String id = sqlCall.getOperands()[1].toString().toLowerCase();
         PatternDescr patternDescr = new PatternDescr(Fact.class.getSimpleName(), id);
         patternDescr.addConstraint(new ExprConstraintDescr("table == \"" + table + "\""));
         return patternDescr;

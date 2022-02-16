@@ -1,9 +1,13 @@
 package org.drools.materialized;
 
+import org.junit.Test;
+import org.junit.runners.Parameterized;
 import org.kie.api.runtime.rule.Row;
 import org.kie.api.runtime.rule.ViewChangedEventListener;
 
-public class Test {
+import static org.junit.Assert.assertEquals;
+
+public class MaterializedViewsTest {
 
     private static final String[] ADDRESSES = new String[]{
         "{\"before\":null,\"after\":{\"id\":100001,\"customer_id\":1001,\"street\":\"42 Main Street\",\"city\":\"Hamburg\",\"zipcode\":\"90210\",\"country\":\"Canada\"},\"source\":{\"version\":\"1.8.0.Alpha2\",\"connector\":\"postgresql\",\"name\":\"dbserver1\",\"ts_ms\":1643708392710,\"snapshot\":\"true\",\"db\":\"postgres\",\"sequence\":\"[null,\\\"36183464\\\"]\",\"schema\":\"inventory\",\"table\":\"addresses\",\"txId\":765,\"lsn\":36183464,\"xmin\":null},\"op\":\"r\",\"ts_ms\":1643708392715,\"transaction\":null}",
@@ -31,7 +35,7 @@ public class Test {
             "FROM\n" +
             "  addresses\n" +
             "GROUP BY\n" +
-            "  count(*)\n" +
+            "  customer_id\n" +
             "ORDER BY\n" +
             "  count(*) DESC";
 
@@ -41,26 +45,21 @@ public class Test {
             "FROM\n" +
             "  customers c LEFT JOIN addresses a on c.id = a.customer_id";
 
-    @org.junit.Test
-    public void test() {
-        QueryExecutor queryExecutor = QueryExecutor.create(QUERY_2);
+    @Test
+    public void testJoinWithPrototype() {
+        testJoin(true);
+    }
 
-        queryExecutor.listen(new ViewChangedEventListener() {
-            @Override
-            public void rowInserted(Row row) {
-                System.out.println("rowInserted: " + row.get("c") + "; " + row.get("a"));
-            }
+    @Test
+    public void testJoinWithoutPrototype() {
+        testJoin(false);
+    }
 
-            @Override
-            public void rowDeleted(Row row) {
-                System.out.println("rowDeleted: " + row.get("c") + "; " + row.get("a"));
-            }
+    public void testJoin(boolean usePrototype) {
+        QueryExecutor queryExecutor = QueryExecutor.create(QUERY_2, usePrototype);
 
-            @Override
-            public void rowUpdated(Row row) {
-                System.out.println("rowUpdated: " + row.get("c") + "; " + row.get("a"));
-            }
-        });
+        MaterializedViewChangedEventListener listener = new MaterializedViewChangedEventListener();
+        queryExecutor.listen(listener);
 
         for (int i = 0; i < Math.max(ADDRESSES.length, CUSTOMERS.length); i++) {
             if (i < ADDRESSES.length) {
@@ -70,6 +69,35 @@ public class Test {
                 queryExecutor.process(CUSTOMERS[i]);
             }
             System.out.println("*** " + i);
+        }
+
+        assertEquals(5, listener.inserts);
+        assertEquals(2, listener.updates);
+        assertEquals(3, listener.deletes);
+    }
+
+    private static class MaterializedViewChangedEventListener implements ViewChangedEventListener {
+
+        int inserts = 0;
+        int updates = 0;
+        int deletes = 0;
+
+        @Override
+        public void rowInserted(Row row) {
+            inserts++;
+            System.out.println("rowInserted: " + row.get("c") + "; " + row.get("a"));
+        }
+
+        @Override
+        public void rowDeleted(Row row) {
+            deletes++;
+            System.out.println("rowDeleted: " + row.get("c") + "; " + row.get("a"));
+        }
+
+        @Override
+        public void rowUpdated(Row row) {
+            updates++;
+            System.out.println("rowUpdated: " + row.get("c") + "; " + row.get("a"));
         }
     }
 }

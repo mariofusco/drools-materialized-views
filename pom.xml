@@ -13,7 +13,7 @@
   <properties>
     <maven.compiler.target>11</maven.compiler.target>
     <maven.compiler.source>11</maven.compiler.source>
-    <version.drools>8.16.0.Beta</version.drools>
+    <version.drools>8.18.0-SNAPSHOT</version.drools>
     <version.junit>4.13.2</version.junit>
     <version.calcite>1.21.0</version.calcite>
     <version.json>20211205</version.json>
