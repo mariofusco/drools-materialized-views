@@ -46,6 +46,19 @@ public class MaterializedViewsTest {
             "  customers c LEFT JOIN addresses a on c.id = a.customer_id";
 
     @Test
+    public void testGroupBy() {
+        QueryExecutor queryExecutor = QueryExecutor.create(QUERY_1, true);
+
+        MaterializedViewChangedEventListener listener = new GroupByChangedEventListener();
+        queryExecutor.listen(listener);
+
+        processInput(queryExecutor);
+
+        assertEquals(2, listener.inserts);
+        assertEquals(5, listener.updates);
+        assertEquals(1, listener.deletes);    }
+
+    @Test
     public void testJoinWithPrototype() {
         testJoin(true);
     }
@@ -58,9 +71,17 @@ public class MaterializedViewsTest {
     public void testJoin(boolean usePrototype) {
         QueryExecutor queryExecutor = QueryExecutor.create(QUERY_2, usePrototype);
 
-        MaterializedViewChangedEventListener listener = new MaterializedViewChangedEventListener();
+        MaterializedViewChangedEventListener listener = new JoinChangedEventListener();
         queryExecutor.listen(listener);
 
+        processInput(queryExecutor);
+
+        assertEquals(5, listener.inserts);
+        assertEquals(2, listener.updates);
+        assertEquals(3, listener.deletes);
+    }
+
+    private void processInput(QueryExecutor queryExecutor) {
         for (int i = 0; i < Math.max(ADDRESSES.length, CUSTOMERS.length); i++) {
             if (i < ADDRESSES.length) {
                 queryExecutor.process(ADDRESSES[i]);
@@ -70,10 +91,6 @@ public class MaterializedViewsTest {
             }
             System.out.println("*** " + i);
         }
-
-        assertEquals(5, listener.inserts);
-        assertEquals(2, listener.updates);
-        assertEquals(3, listener.deletes);
     }
 
     private static class MaterializedViewChangedEventListener implements ViewChangedEventListener {
@@ -85,19 +102,58 @@ public class MaterializedViewsTest {
         @Override
         public void rowInserted(Row row) {
             inserts++;
-            System.out.println("rowInserted: " + row.get("c") + "; " + row.get("a"));
         }
 
         @Override
         public void rowDeleted(Row row) {
             deletes++;
-            System.out.println("rowDeleted: " + row.get("c") + "; " + row.get("a"));
         }
 
         @Override
         public void rowUpdated(Row row) {
             updates++;
+        }
+    }
+
+    private static class JoinChangedEventListener extends MaterializedViewChangedEventListener {
+
+        @Override
+        public void rowInserted(Row row) {
+            super.rowInserted(row);
+            System.out.println("rowInserted: " + row.get("c") + "; " + row.get("a"));
+        }
+
+        @Override
+        public void rowDeleted(Row row) {
+            super.rowDeleted(row);
+            System.out.println("rowDeleted: " + row.get("c") + "; " + row.get("a"));
+        }
+
+        @Override
+        public void rowUpdated(Row row) {
+            super.rowUpdated(row);
             System.out.println("rowUpdated: " + row.get("c") + "; " + row.get("a"));
+        }
+    }
+
+    private static class GroupByChangedEventListener extends MaterializedViewChangedEventListener {
+
+        @Override
+        public void rowInserted(Row row) {
+            super.rowInserted(row);
+            System.out.println("rowInserted: customer_id = " + row.get("customer_id") + "; count = " + row.get("count"));
+        }
+
+        @Override
+        public void rowDeleted(Row row) {
+            super.rowDeleted(row);
+            System.out.println("rowDeleted: customer_id = " + row.get("customer_id") + "; count = " + row.get("count"));
+        }
+
+        @Override
+        public void rowUpdated(Row row) {
+            super.rowUpdated(row);
+            System.out.println("rowUpdated: customer_id = " + row.get("customer_id") + "; count = " + row.get("count"));
         }
     }
 }
