@@ -69,12 +69,15 @@ public class ProgrammaticSchema extends AbstractSchema {
         private RelDataType createType(Class clazz) {
             switch (Primitive.flavor(clazz)) {
                 case PRIMITIVE:
-                    return typeFactory.createJavaType(clazz);
+                    RelDataType primitiveType = typeFactory.createJavaType(clazz);
+                    return typeFactory.leastRestrictive(List.of(primitiveType));
                 case BOX:
-                    return typeFactory.createJavaType(Primitive.ofBox(clazz).boxClass);
+                    RelDataType boxType = typeFactory.createJavaType(Primitive.ofBox(clazz).boxClass);
+                    return typeFactory.leastRestrictive(List.of(boxType));
             }
             if (JavaToSqlTypeConversionRules.instance().lookup(clazz) != null) {
-                return typeFactory.createJavaType(clazz);
+                RelDataType javaType = typeFactory.createJavaType(clazz);
+                return typeFactory.leastRestrictive(List.of(javaType));
             } else if (clazz.isArray()) {
                 return typeFactory.createMultisetType( createType(clazz.getComponentType()), -1 );
             } else if (List.class.isAssignableFrom(clazz)) {
