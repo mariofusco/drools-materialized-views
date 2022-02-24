@@ -7,15 +7,12 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlJoin;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlSelect;
 import org.drools.core.base.accumulators.CountAccumulateFunction;
 import org.drools.model.DSL;
 import org.drools.model.Index;
 import org.drools.model.Model;
-import org.drools.model.PatternDSL;
 import org.drools.model.Prototype;
 import org.drools.model.PrototypeDSL;
 import org.drools.model.PrototypeVariable;
@@ -24,7 +21,6 @@ import org.drools.model.Variable;
 import org.drools.model.impl.ModelImpl;
 import org.drools.model.view.ViewItem;
 import org.drools.modelcompiler.builder.KieBaseBuilder;
-import org.drools.modelcompiler.dsl.pattern.D;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
 
@@ -37,19 +33,21 @@ import static org.drools.model.PrototypeDSL.variable;
 
 public class PrototypedQueryGenerator {
 
+    private static final boolean USE_ALGEBRA = true;
+
     private final Map<String, Prototype> prototypes = new HashMap<>();
     private final Map<String, PrototypeVariable> variables = new HashMap<>();
 
     public KieSession query2KieSessionViaExecModelDSL(String query) {
-        // TODO
-        // Query droolsQuery = sqlToExecModelQuery( toAlgebra(query) );
-
-        SqlSelect sqlSelect = toSqlSelect(parseQuery(query));
-        Query droolsQuery = sqlToExecModelQuery( sqlSelect );
+         Query droolsQuery = toDroolsQuery(query);
 
         Model model = new ModelImpl().addQuery( droolsQuery );
         KieBase kieBase = KieBaseBuilder.createKieBaseFromModel( model );
         return kieBase.newKieSession();
+    }
+
+    private Query toDroolsQuery(String query) {
+        return USE_ALGEBRA ? sqlToExecModelQuery( toAlgebra(query) ) : sqlToExecModelQuery( toSqlSelect(parseQuery(query)) );
     }
 
     private Query sqlToExecModelQuery(RelRoot sql) {
@@ -57,7 +55,7 @@ public class PrototypedQueryGenerator {
     }
 
     private Query sqlToExecModelQuery(SqlSelect sql) {
-        ViewItem[] patterns = null;
+        ViewItem[] patterns;
         if (sql.getFrom() instanceof SqlJoin) {
             patterns = processJoin( (SqlJoin) sql.getFrom() );
         } else {
