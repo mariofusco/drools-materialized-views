@@ -57,10 +57,15 @@ public class SqlUtil {
         Schema schema = new ProgrammaticSchema(schemaDefinition);
 
         try {
-            SchemaPlus schemaPlus = CalciteSchema.createRootSchema(false, true, "", schema).plus();
+            SchemaPlus schemaPlus =
+                    CalciteSchema.createRootSchema(false, true, "", schema).plus();
+            SqlParser.Config parserConfig =
+                    configBuilder()
+                            .setCaseSensitive(false)
+                            .build();
             FrameworkConfig config = Frameworks.newConfigBuilder()
                     .defaultSchema(schemaPlus)
-                    .parserConfig(configBuilder().setCaseSensitive(false).build())
+                    .parserConfig(parserConfig)
                     .build();
             config.getParserConfig().caseSensitive();
             Planner planner = Frameworks.getPlanner(config);
